@@ -194,6 +194,22 @@ sandbox: rw then finds the repository from `.git` on disk, runs every check that
 skips the leftover-branch check (it needs git) and `watchdog.checks` (they need a shell). Give a scheduled
 watchdog permission to run `git` if you want the full audit.
 
+Each repository is audited on its own: its config, its state, its lanes and its checks. To watch several,
+`rw watchdog --repos <path>,<path>` (or `--repos-file <file>`, one path per line, `#` for comments) runs
+from any folder, audits each repository exactly as `rw watchdog` would inside it, prints the details for
+the ones that are not clean, and then one line per repository:
+
+```text
+== C:/git/other-project
+DEVIATION lane: TASK-012 lane silent for 47m (no executor output)
+WATCHDOG OK  C:/git/game
+WATCHDOG DEVIATIONS=1  C:/git/other-project
+```
+
+A path that is not an rw repository is `WATCHDOG ERROR` and does not stop the others. The exit code is the
+worst verdict: 1 for any deviation or error, else 4 for any partial audit, else 0. `--json` gives one record
+per repository.
+
 ## Owner commands
 
 | Command | Effect |

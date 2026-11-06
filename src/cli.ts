@@ -6,6 +6,7 @@ import { REPORT_STATES, UserError, type ReportState } from './core/model.ts'
 import { chain } from './app/config.ts'
 import { HOSTS, init, type Host } from './app/init.ts'
 import { runLane } from './app/lane.ts'
+import { auditRepos, exitFor, readRepoList } from './app/watch.ts'
 import { exitCode, pass } from './app/loop.ts'
 import * as ops from './app/ops.ts'
 import { PACKAGE_ROOT, Repo } from './app/repo.ts'
@@ -37,6 +38,7 @@ Router
   rw review <TASK> · rw merge <TASK>            merge keeps every gate's output in .rw/state/lanes/TASK.merge.log
   rw clean [--force]            remove leftover lane branches and folders, and dropped tasks' lanes
   rw watchdog [--json] [--skip-checks]          read-only audit; prints only deviations (exit 1; 4 when partial)
+  rw watchdog --repos <path,…> | --repos-file <file>   audit several repositories, one verdict each
 
 Workers and agents
   rw report <TASK> [--state ready|blocked|dropped|failed]   check and record the report
@@ -174,6 +176,30 @@ async function main(argv: readonly string[]): Promise<number> {
     for (const warning of result.warnings) print(`  WARNING ${warning}`)
     print('Next: edit .rw/config.json (base branch, gates.merge, tiers), commit, then rw add …')
     return 0
+  }
+
+  if (command === 'watchdog' && (has(args, 'repos') || has(args, 'repos-file'))) {
+    // runs from anywhere: each listed repository is opened on its own
+    const paths = [...many(args, 'repos', true), ...(args.flags.get('repos-file') ?? []).flatMap(readRepoList)]
+    if (paths.length === 0) throw new UserError('--repos or --repos-file names no repository')
+    const audits = auditRepos(paths, { skipChecks: has(args, 'skip-checks') })
+    if (has(args, 'json')) {
+      print(JSON.stringify({ repos: audits }, null, 2))
+      return exitFor(audits)
+    }
+    for (const audit of audits) {
+      if (audit.verdict === 'ok') continue
+      print(`== ${audit.path}`)
+      if (audit.error) print(`ERROR ${audit.error}`)
+      for (const item of audit.deviations) print(`DEVIATION ${item.check}: ${item.detail}`)
+      for (const item of audit.skipped) print(`SKIPPED ${item}`)
+    }
+    const label = { ok: 'OK', deviations: 'DEVIATIONS', partial: 'PARTIAL', error: 'ERROR' } as const
+    for (const audit of audits) {
+      const count = audit.verdict === 'deviations' ? `=${audit.deviations.length}` : audit.verdict === 'partial' ? ` (${audit.skipped.length} skipped)` : ''
+      print(`WATCHDOG ${label[audit.verdict]}${count}  ${audit.path}`)
+    }
+    return exitFor(audits)
   }
 
   const repo = Repo.open(process.cwd())

@@ -324,6 +324,29 @@ describe('router-worker end to end', () => {
     assert.match(result.stdout, /WATCHDOG PARTIAL: no deviation in what ran; 1 check\(s\) skipped/)
   })
 
+  test('rw watchdog --repos audits several repositories from anywhere and exits with the worst verdict', () => {
+    const elsewhere = mkdtempSync(join(tmpdir(), 'rw-elsewhere-'))
+    try {
+      const run = (...args: string[]) => spawnSync(process.execPath, [CLI, 'watchdog', '--skip-checks', ...args], { cwd: elsewhere, encoding: 'utf8', env: { ...process.env, RW_TASK: '' } })
+      const missing = join(elsewhere, 'not-a-repo')
+      mkdirSync(missing)
+      const both = run('--repos', `${repo},${missing}`)
+      assert.equal(both.status, 1, both.stdout + both.stderr)
+      assert.match(both.stdout, new RegExp(`WATCHDOG (OK|DEVIATIONS=\\d+)  ${repo.replace(/[\\^$.*+?()[\]{}|]/g, '\\$&')}`))
+      assert.match(both.stdout, /ERROR .*not inside a git repository/)
+      assert.match(both.stdout, /WATCHDOG ERROR  .*not-a-repo/)
+      const list = join(elsewhere, 'repos.txt')
+      writeFileSync(list, `# repositories rw watches\n${repo}\n\n${repo}   # listed twice, audited once\n`)
+      const fromFile = run('--repos-file', list, '--json')
+      const parsed = JSON.parse(fromFile.stdout) as { repos: { path: string; verdict: string }[] }
+      assert.equal(parsed.repos.length, 1)
+      assert.ok(['ok', 'deviations'].includes(parsed.repos[0]!.verdict))
+      assert.equal(fromFile.status, parsed.repos[0]!.verdict === 'ok' ? 0 : 1)
+    } finally {
+      rmSync(elsewhere, { recursive: true, force: true })
+    }
+  })
+
   test('rw <command> --help shows that command', () => {
     const help = rw('add', '--help').out
     assert.match(help, /rw add "<title>"/)

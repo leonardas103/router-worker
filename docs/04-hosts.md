@@ -99,7 +99,8 @@ DSH yet: the first time, start the profile, check its log for `router-worker rea
 
 **A scheduled watchdog** in a DSH profile runs in that profile's sandbox. If the sandbox forbids starting
 processes, `rw watchdog` still runs its file-only checks and exits 4 (`WATCHDOG PARTIAL`) naming what it
-skipped ([02](02-protocol.md#watchdog)); allow it to run `git` for the full audit.
+skipped ([02](02-protocol.md#watchdog)); allow it to run `git` for the full audit. One scheduled check can
+watch every rw repository on the machine with `rw watchdog --repos-file <list>`.
 
 **Enforcement**: DSH lanes do not get `RW_TASK` in their shell, so the owner-only guard does not apply
 inside them; the prompt and the rw-worker skill state the rule, and scope is enforced at report and merge.

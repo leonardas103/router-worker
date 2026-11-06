@@ -58,6 +58,7 @@ Rules:
 | `app/ops.ts` | every command, including dispatch, report, merge, review, follow-up delivery and launchers |
 | `app/lane.ts` | the detached lane supervisor and `settle` |
 | `app/loop.ts` | one router pass |
+| `app/watch.ts` | the watchdog across several repositories (`rw watchdog --repos`) |
 | `app/init.ts` | the repository kit and host installs |
 | `exec/executors.ts` | `claude` and `command` invocations, log parsing, capacity detection |
 | `plugin/dsh/index.ts` | the DSH plugin: timer, tools, skills, Session lanes |

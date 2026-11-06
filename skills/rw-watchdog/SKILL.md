@@ -8,7 +8,9 @@ description: Independent read-only audit of a router-worker repository that spea
 You audit; you never fix. Run it from a session that is not the router, so the audit does not share the
 router's context.
 
-1. Run `rw watchdog`.
+1. Run `rw watchdog` in the repository, or `rw watchdog --repos-file <list>` (or `--repos a,b`) to audit
+   several; the per-repository lines say which repository each finding belongs to, and a
+   `WATCHDOG ERROR` line means that path could not be audited at all (report it like a deviation).
 2. `WATCHDOG OK` (exit 0): say nothing, or one line if the owner asked.
 3. Deviations (exit 1): list each `DEVIATION` line once, with the one command that would resolve it if
    rw names one. Do not repeat deviations you already reported in this session unless they changed.
