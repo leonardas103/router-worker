@@ -1,0 +1,2 @@
+# LF everywhere, so a checkout on Windows ships the same bytes as one on Linux (bin/rw.mjs starts with a shebang)
+* text=auto eol=lf
