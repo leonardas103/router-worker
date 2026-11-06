@@ -695,10 +695,15 @@ export function clean(repo: Repo, force: boolean): { removed: string[]; kept: st
 
 /** Things that make lanes behave differently from what the owner sees: the kit must be committed on the base. */
 export function kitProblems(repo: Repo): string[] {
+  const problems: string[] = []
   const missing = ['.rw/config.json', 'AGENTS.md'].filter((rel) => exists(join(repo.root, rel)) && (!g.tracked(repo.root, rel) || g.changedSinceHead(repo.root, rel)))
-  return missing.length
-    ? [`commit ${missing.join(' and ')} on ${repo.config.base}: lane worktrees are checked out from ${repo.config.base} and do not see uncommitted files`]
-    : []
+  if (missing.length) problems.push(`commit ${missing.join(' and ')} on ${repo.config.base}: lane worktrees are checked out from ${repo.config.base} and do not see uncommitted files`)
+  // the local overlay holds machine-specific settings, such as paths, which must never be committed
+  const local = '.rw/config.local.json'
+  if (exists(join(repo.root, local)) && (g.tracked(repo.root, local) || !g.git(repo.root, ['check-ignore', '-q', '--', local]).ok)) {
+    problems.push(`${local} is ${g.tracked(repo.root, local) ? 'committed' : 'not ignored by git'}; it holds machine-specific settings: add it to .rw/.gitignore${g.tracked(repo.root, local) ? ` and git rm --cached ${local}` : ''} (rw init does)`)
+  }
+  return problems
 }
 
 // ── merge ─────────────────────────────────────────────────────────────────────────────────────────

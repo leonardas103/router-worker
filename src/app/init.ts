@@ -67,7 +67,14 @@ export function init(cwd: string, options: { hosts: readonly Host[]; force?: boo
   }
 
   put('.rw/config.json', packageFile('templates', 'config.json'))
-  put('.rw/.gitignore', 'state/\n')
+  // runtime state and the machine-local config overlay never enter git; existing files gain missing lines
+  const ignore = join(root, '.rw', '.gitignore')
+  const ignored = (readText(ignore) ?? '').split(/\r?\n/).map((line) => line.trim())
+  const lines = ['state/', 'config.local.json'].filter((line) => !ignored.includes(line))
+  if (lines.length) {
+    writeAtomic(ignore, `${(readText(ignore) ?? '').replace(/\s*$/, '\n').replace(/^\n$/, '')}${lines.join('\n')}\n`)
+    written.push('.rw/.gitignore')
+  } else kept.push('.rw/.gitignore')
   put('.rw/prompts/worker.md', packageFile('templates', 'team-worker.md'))
   put('.rw/prompts/reviewer.md', packageFile('templates', 'team-reviewer.md'))
   put('work/tasks/README.md', packageFile('templates', 'tasks-README.md'))

@@ -347,6 +347,26 @@ describe('router-worker end to end', () => {
     }
   })
 
+  test('.rw/config.local.json is merged over the committed config, and is gitignored by init', async () => {
+    assert.equal(spawnSync('git', ['check-ignore', '-q', '.rw/config.local.json'], { cwd: repo }).status, 0, 'rw init ignores it')
+    const local = join(repo, '.rw', 'config.local.json')
+    writeFileSync(local, JSON.stringify({ executors: { fake: { models: { default: 'machine-model' } } } }))
+    try {
+      const id = /TASK-\d+/.exec(rw('add', 'ok local model', '--scope', 'src/TASK-*.txt', '--accept', 'node check.mjs').out)?.[0] as string
+      assert.equal(rw('dispatch', id, '--executor', 'fake').code, 0)
+      assert.equal((state().lanes[id] as unknown as { model: string }).model, 'machine-model')
+      assert.doesNotMatch(rw('status').out, /config.local.json/, 'an ignored local config is not a problem')
+      // finish the task first: a broken config would also stop its running lane from loading settings
+      await until(() => state().tasks[id]?.state === 'done', `${id} done`)
+      writeFileSync(local, '{ "limits": { "lanes": 0 } }')
+      const bad = rw('status')
+      assert.equal(bad.code, 2)
+      assert.match(bad.out, /\.rw\/config\.json with \.rw\/config\.local\.json: limits.lanes must be at least 1/)
+    } finally {
+      rmSync(local, { force: true })
+    }
+  })
+
   test('rw <command> --help shows that command', () => {
     const help = rw('add', '--help').out
     assert.match(help, /rw add "<title>"/)

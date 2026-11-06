@@ -8,6 +8,7 @@ The files, the loop, the gates and the halts, exactly as rw implements them. Bui
 | Path | Class | Writer | In git |
 | --- | --- | --- | --- |
 | `.rw/config.json` | settings | owner | yes |
+| `.rw/config.local.json` | machine-local settings merged over `config.json` (a bridge path, a model id, a `worktreeRoot`) | owner | no; `rw init` ignores it |
 | `.rw/prompts/worker.md`, `reviewer.md` | team text appended to the built-in prompts | owner | yes |
 | `work/tasks/TASK-###.md` | contracts | owner (or intake agent, then `rw approve`) | yes; rw commits them |
 | `work/reports/TASK-###.md` | records | the task's worker, on its branch | yes; merged with the work; never edited after |
@@ -228,6 +229,16 @@ per repository.
 ## Settings
 
 `.rw/config.json`; every key is optional and unknown keys fail.
+
+`.rw/config.local.json`, when it exists, is merged over it before validation: objects merge key by key, and
+lists and values replace. It is for what must not be committed, such as the path of a local bridge script:
+
+```json
+{ "executors": { "antigravity": { "enabled": true, "start": ["node", "C:/tools/bridge.mjs", "--prompt-file", "{promptFile}"] } } }
+```
+
+`rw init` adds it to `.rw/.gitignore` (re-running `rw init` adds the line to an older kit), and `rw status`
+reports it as a problem if git does not ignore it. An error in the merged settings names both files.
 
 | Key | Default | Meaning |
 | --- | --- | --- |

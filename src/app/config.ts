@@ -244,8 +244,34 @@ export function parseConfig(raw: unknown): Config {
   }
 }
 
+/** The machine-local overlay: gitignored, for what may not be committed (a bridge path, a model id). */
+export const LOCAL_CONFIG = 'config.local.json'
+
+function plainObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
+/** Objects merge key by key, recursively; lists and values in `local` replace those in `base`. */
+export function mergeConfig(base: unknown, local: unknown): unknown {
+  if (local === undefined) return base
+  if (!plainObject(base) || !plainObject(local)) return local
+  const out: Record<string, unknown> = { ...base }
+  for (const [key, value] of Object.entries(local)) out[key] = key in base ? mergeConfig(base[key], value) : value
+  return out
+}
+
+/** `.rw/config.json`, with `.rw/config.local.json` merged over it when the file exists. */
 export function loadConfig(root: string): Config {
-  return parseConfig(readJson<unknown>(join(root, '.rw', 'config.json'), {}))
+  const base = readJson<unknown>(join(root, '.rw', 'config.json'), {})
+  const local = readJson<unknown>(join(root, '.rw', LOCAL_CONFIG), undefined)
+  if (local === undefined) return parseConfig(base)
+  if (!plainObject(local)) throw new UserError(`.rw/${LOCAL_CONFIG} must be a JSON object`)
+  try {
+    return parseConfig(mergeConfig(base, local))
+  } catch (error) {
+    if (error instanceof UserError) throw new UserError(error.message.replace('.rw/config.json:', `.rw/config.json with .rw/${LOCAL_CONFIG}:`))
+    throw error
+  }
 }
 
 /** Where lane worktrees live: outside the repository, so tools that walk the tree never see them. */

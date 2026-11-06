@@ -10,7 +10,7 @@ import { braceExpand, matches, outside, patternProblem, patternsOverlap } from '
 import { register, transition } from '../src/core/state.ts'
 import { mandateHash, parseTask, renderTask, validateSet } from '../src/core/task.ts'
 import { audit, type Facts } from '../src/core/watchdog.ts'
-import { chain, parseConfig } from '../src/app/config.ts'
+import { chain, mergeConfig, parseConfig } from '../src/app/config.ts'
 
 const NOW = '2026-11-06T12:00:00.000Z'
 
@@ -233,6 +233,21 @@ describe('config', () => {
     assert.throws(() => parseConfig({ policy: { mode: 'yolo' } }), /policy.mode/)
     const disabled = parseConfig({ executors: { claude: { kind: 'claude', enabled: false } } })
     assert.deepEqual(chain(disabled, 'build'), [{ executor: 'manual', model: '' }])
+  })
+})
+
+describe('local config overlay', () => {
+  test('objects merge key by key; lists and values replace', () => {
+    const base = { tiers: { build: ['agy', 'claude'], light: ['claude:light'] }, executors: { agy: { kind: 'command', enabled: false, start: ['agy'], models: { default: '' } } }, limits: { lanes: 2 } }
+    const local = { tiers: { build: ['agy'] }, executors: { agy: { enabled: true, start: ['node', 'C:/bridge.mjs'], models: { default: 'm1' } } }, worktreeRoot: 'D:/lanes' }
+    const merged = mergeConfig(base, local) as typeof base & { worktreeRoot: string }
+    assert.deepEqual(merged.tiers, { build: ['agy'], light: ['claude:light'] })
+    assert.deepEqual(merged.executors.agy, { kind: 'command', enabled: true, start: ['node', 'C:/bridge.mjs'], models: { default: 'm1' } })
+    assert.equal(merged.limits.lanes, 2)
+    assert.equal(merged.worktreeRoot, 'D:/lanes')
+    const config = parseConfig(merged)
+    assert.deepEqual(chain(config, 'build'), [{ executor: 'agy', model: 'm1' }])
+    assert.equal(mergeConfig(base, undefined), base)
   })
 })
 

@@ -93,7 +93,9 @@ rw has no built-in Antigravity executor. A `command` executor points at whatever
 agent headless on your machine (its own command line if your version has one, or a bridge script): it
 takes a prompt file, a working directory and a model, runs one agent conversation, and prints a
 conversation id that `sessionPattern` can read. The template in `rw init`'s config is disabled until you
-point `start` at it; rw does not guess Antigravity's flags.
+point `start` at it; rw does not guess Antigravity's flags. A bridge path is machine-specific: put the
+executor (or just `enabled`, `start` and `resume`) in the gitignored `.rw/config.local.json`, which is merged
+over the committed config ([02](02-protocol.md#settings)).
 
 ### `manual` — a person or an IDE agent
 

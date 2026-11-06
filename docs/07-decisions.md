@@ -108,3 +108,11 @@ repository's event log records as lane worktrees, because a worktree root can be
 before the base moves, so a false PASS can cost a round but never lands. Running the commands at report
 time as well (`verifyReport: true`) catches it a round earlier, at the cost of a slow `rw report` that
 an agent's shell tool can time out on. It is opt-in for repositories whose acceptance commands are fast.
+
+## RW-016 Machine-specific settings live in a gitignored overlay
+
+A repository may forbid machine paths in committed files, and a local executor (a bridge script, a model
+only one machine has) needs exactly that. `.rw/config.local.json` is merged over `.rw/config.json` before
+validation: objects key by key, lists and values replaced, so an overlay states only what differs. It is
+gitignored by `rw init`, and `rw status` reports one that git would commit. One overlay file, not
+environment variables in argv templates, keeps every setting visible in one place and validated the same way.

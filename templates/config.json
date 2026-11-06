@@ -45,7 +45,7 @@
     "antigravity": {
       "kind": "command",
       "enabled": false,
-      "//": "Point start at a bridge script that runs one Antigravity agent headless with a prompt file (docs/03-executors.md), then enable it and put \"antigravity\" first in a tier.",
+      "//": "Point start at a bridge script that runs one Antigravity agent headless with a prompt file (docs/03-executors.md), then enable it and put \"antigravity\" first in a tier. Machine paths go in the gitignored .rw/config.local.json, merged over this file.",
       "start": ["node", "<path-to>/antigravity-bridge.mjs", "--prompt-file", "{promptFile}", "--cwd", "{cwd}", "--model", "{model}"],
       "resume": [],
       "stdin": false,
