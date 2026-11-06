@@ -137,6 +137,7 @@ async function main() {
   ]
   console.log('')
   for (const [name, ok] of checks) console.log(`${ok ? 'PASS' : 'FAIL'}  ${name}`)
+  console.log(`\nsession when it asked: ${firstSession || '(none recorded)'}; session ids in the lane log: ${[...sessions].join(', ') || '(none)'}`)
   console.log(`\nexecutor runs: ${exits.length}${cost ? `, cost $${cost.toFixed(4)}` : ''}, ${Math.round((Date.now() - started) / 1000)}s`)
   const failed = checks.filter(([, ok]) => !ok).length
   console.log(failed ? `SMOKE FAILED (${failed})` : 'SMOKE OK')
@@ -144,8 +145,9 @@ async function main() {
 }
 
 main().then((code) => {
-  if (!keep) rmSync(dir, { recursive: true, force: true })
-  else console.log(`kept: ${repo}`)
+  // a failed check keeps the evidence: the lane log, the gate log and the state
+  if (!keep && code === 0) rmSync(dir, { recursive: true, force: true })
+  else console.log(`kept: ${repo} (lane log: .rw/state/lanes/TASK-001.log)`)
   process.exitCode = code
 }, (error) => {
   console.error(`\nSMOKE FAILED: ${error instanceof Error ? error.message : String(error)}`)

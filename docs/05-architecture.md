@@ -70,7 +70,7 @@ Rules:
 | File | Covers |
 | --- | --- |
 | `tests/core.test.ts` | the pure core: parsing, scope, packet, gate, transitions, watchdog, config, prompts |
-| `tests/e2e.test.ts` | a real git repository, `rw init`, detached supervisors and a scripted executor (`tests/fixtures/fake-worker.mjs`): add → merge, scope refusal, question → answer in the same session, capacity fallback, red gate returned to the lane, review rounds, a gate that writes files, hold ending the executor, symlink refusal (POSIX), worktree
+| `tests/e2e.test.ts` | a real git repository, `rw init`, detached supervisors and a scripted executor (`tests/fixtures/fake-worker.mjs`, and `fake-claude.mjs`, which takes the claude adapter's real flags, speaks stream-json and keeps its turn open after reporting like the real CLI): add → merge, scope refusal, question → answer in the same session, capacity fallback, red gate returned to the lane, review rounds, a gate that writes files, hold ending the executor, symlink refusal (POSIX), worktree
 prepare (success and failure), merging beside unrelated owner edits and waiting on a colliding one, a failed setup fixed on the base and retried, reset refusing and forcing, teardown of a worktree that lost its `.git`, `--executor` model choice, `verifyReport`, the merge gate log, leftovers and `rw clean` (never touching folders rw did not create), per-command help, missing report, owner-only guard, proposals, mandate drift |
 | `tests/dsh-plugin.test.ts` | the plugin against a fake DSH context |
 

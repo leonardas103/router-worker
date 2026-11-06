@@ -103,6 +103,9 @@ export async function runLane(repo: Repo, key: string): Promise<void> {
       addDirs: lane.role === 'reviewer' ? [repo.paths.lanes] : [],
       ...(resumeSession ? { resumeSession } : {}),
     })
+    // A session id known before the run (Claude Code takes ours) is recorded now, not at exit: a worker can
+    // report blocked mid-turn, and the owner, rw lane and a resume all need the id while the turn finishes.
+    if (run.session && run.session !== lane.session) repo.update((current) => patchLane(current, key, { session: run.session }))
     const offset = size(lane.log)
     writeAtomicAppend(lane.log, `\n[rw] ${repo.now()} ${resumeSession ? 'resume' : 'start'} ${lane.executor}${lane.model ? `/${lane.model}` : ''} in ${lane.worktree}\n`)
     const code = await runProcess(repo, key, run, lane.worktree, lane.log, lane.role)

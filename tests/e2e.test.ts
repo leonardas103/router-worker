@@ -5,7 +5,7 @@
  */
 import { strict as assert } from 'node:assert'
 import { spawnSync } from 'node:child_process'
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
@@ -13,6 +13,7 @@ import { after, before, describe, test } from 'node:test'
 
 const CLI = resolve(import.meta.dirname, '..', 'src', 'cli.ts')
 const FAKE = resolve(import.meta.dirname, 'fixtures', 'fake-worker.mjs')
+const FAKE_CLAUDE = resolve(import.meta.dirname, 'fixtures', 'fake-claude.mjs')
 
 let dir = ''
 let repo = ''
@@ -62,6 +63,13 @@ before(() => {
   sh(repo, 'git', ['commit', '-q', '-m', 'init'])
   const init = rw('init', '--host', 'claude,antigravity')
   assert.equal(init.code, 0, init.out)
+  // a `claude` on disk that is the fake: the claude adapter's real flags and stream-json, scripted work
+  const shim = join(dir, 'fake-claude')
+  if (process.platform === 'win32') writeFileSync(`${shim}.cmd`, `@node "${FAKE_CLAUDE}" %*\r\n`)
+  else {
+    writeFileSync(shim, `#!/bin/sh\nexec node "${FAKE_CLAUDE}" "$@"\n`)
+    chmodSync(shim, 0o755)
+  }
   const config = {
     base: 'main',
     worktreeRoot: join(dir, 'worktrees'),
@@ -71,6 +79,7 @@ before(() => {
     policy: { mode: 'observe', rules: [{ id: 'gap-followup', text: 'follow-ups for named gaps', enabled: true }] },
     tiers: { build: ['fake', 'second'], review: ['fake'] },
     executors: {
+      claudeish: { kind: 'claude', command: shim, models: { default: 'haiku' } },
       fake: { kind: 'command', models: { default: 'fake-default', cheap: 'fake-cheap' }, start: ['node', FAKE, 'start'], resume: ['node', FAKE, 'resume', '{session}'], stdin: true, sessionPattern: '"conversationId":"([0-9a-f-]{36})"' },
       second: { kind: 'command', start: ['node', '--input-type=module', '-e', `process.env.FAKE_EXECUTOR='second'; await import(${JSON.stringify(pathToFileURL(FAKE).href)})`, 'start'], stdin: true },
     },
@@ -338,6 +347,25 @@ describe('router-worker end to end', () => {
     sh(repo, 'git', ['checkout', '--', 'src/shared.txt'])
     await until(() => state().tasks[id]?.state === 'done', `${id} done`)
     assert.match(sh(repo, 'git', ['show', 'main:src/shared.txt']), /shared change/)
+  })
+
+  test('the claude adapter records its session at launch, and the answer resumes that session', async () => {
+    const calls = join(dir, 'fake-claude.log')
+    process.env.FAKE_CLAUDE_LOG = calls
+    const id = /TASK-\d+/.exec(rw('add', 'ask via claude', '--scope', 'src/TASK-*.txt', '--accept', 'node check.mjs').out)?.[0] as string
+    const started = rw('dispatch', id, '--executor', 'claudeish')
+    assert.equal(started.code, 0, started.out)
+    await until(() => state().tasks[id]?.state === 'blocked', `${id} blocked`)
+    const session = (state().lanes[id] as unknown as { session: string }).session
+    assert.match(session, /^[0-9a-f-]{36}$/, 'the session is known while the worker is still finishing its turn')
+    assert.equal(rw('answer', id, 'hi').code, 0)
+    await until(() => state().tasks[id]?.state === 'done', `${id} done`)
+    const runs = readFileSync(calls, 'utf8').trim().split('\n').map((line) => JSON.parse(line) as { started?: string; resumed?: string; model: string })
+    assert.equal(runs.length, 2)
+    assert.equal(runs[0]?.started, session, 'started with --session-id <the recorded session>')
+    assert.equal(runs[1]?.resumed, session, 'the answer ran --resume <the same session>')
+    assert.ok(runs.every((run) => run.model === 'haiku'), 'the tier model, both times')
+    delete process.env.FAKE_CLAUDE_LOG
   })
 
   test('workers cannot authorize work; the gate records proposals', () => {
