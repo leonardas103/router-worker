@@ -1,0 +1,60 @@
+{
+  "//": "router-worker settings for this repository. Every key is optional; docs/02-protocol.md explains each one.",
+  "base": "main",
+  "tasksDir": "work/tasks",
+  "reportsDir": "work/reports",
+  "worktreeRoot": "~/.rw/worktrees/{repo}",
+  "commitTasks": true,
+  "verifyReport": false,
+  "limits": {
+    "lanes": 2,
+    "remediation": 2,
+    "reviewRounds": 2,
+    "staleMinutes": 20
+  },
+  "gates": {
+    "merge": []
+  },
+  "worktree": {
+    "copy": [],
+    "prepare": []
+  },
+  "policy": {
+    "mode": "observe",
+    "rules": [
+      {
+        "id": "gap-followup",
+        "text": "A worker may propose a follow-up task for a GAP it named in its report, inside the same story, with a scope of at most 3 paths.",
+        "enabled": false,
+        "tiers": ["light", "build"],
+        "maxScope": 3
+      }
+    ]
+  },
+  "tiers": {
+    "light": ["claude:light", "manual"],
+    "build": ["claude", "manual"],
+    "review": ["claude:strong", "manual"]
+  },
+  "executors": {
+    "claude": {
+      "kind": "claude",
+      "models": { "default": "sonnet", "light": "haiku", "strong": "opus" },
+      "permissionMode": "acceptEdits"
+    },
+    "antigravity": {
+      "kind": "command",
+      "enabled": false,
+      "//": "Point start at a bridge script that runs one Antigravity agent headless with a prompt file (docs/03-executors.md), then enable it and put \"antigravity\" first in a tier.",
+      "start": ["node", "<path-to>/antigravity-bridge.mjs", "--prompt-file", "{promptFile}", "--cwd", "{cwd}", "--model", "{model}"],
+      "resume": [],
+      "stdin": false,
+      "models": { "default": "" },
+      "sessionPattern": "\"conversationId\"\\s*:\\s*\"([0-9a-f-]{36})\""
+    },
+    "manual": { "kind": "manual" }
+  },
+  "watchdog": {
+    "checks": []
+  }
+}

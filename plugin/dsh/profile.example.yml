@@ -1,0 +1,8 @@
+# Example profile configuration: append to $DSH_HOME/profiles/<profile>/cordis.patch.yml (see docs/04-hosts.md).
+# Use forward slashes on Windows. Every repository must already have run `rw init`.
+- id: router-worker
+  config:
+    repos:
+      - C:/path/to/your-repo
+    # Seconds between router passes; 0 leaves routing to the rw_loop_once tool or `rw loop` in a terminal.
+    intervalSeconds: 30

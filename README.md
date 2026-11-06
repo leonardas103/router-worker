@@ -1,39 +1,80 @@
-# dsh-superagent
+# router-worker
 
-> **Research prototype for reference only, not an official DeepSeek product.** This code grew out of our team's day-to-day development work, with much of the engineering done by coding agents. Treat it as research code, not production-ready software. It may still contain bugs, and its coding style and engineering practices may be inconsistent. Review and adapt it before using it in your own environment.
->
-> We have adapted it for publication, so it is not identical to our internal version or the implementation described in *Exploring Super-agent Design: Towards a More Autonomous Agent System*. Some designs discussed in the article are directions for future development and are not implemented in this prototype.
+A local, miniature super-agent for one repository. **The router is code, the workers are agents, the
+watchdog is read-only, and the owner sees only what needs them.**
 
-dsh-superagent is a proactive coding agent for one GitHub repository, packaged as a bundle for [DeepSeek Harness](https://www.deepseek.com/en/harness/). It listens to GitHub and, optionally, Feishu. When someone allowed asks the agent for work, it opens a work item, works on it in its own agent session and directory, and answers in the original conversation, for example with a pull request. A web panel shows what needs a person.
+It distils [dsh-superagent](https://github.com/deepseek-ai/dsh-superagent-prototype) (DeepSeek Harness's research prototype)
+and the record of coding agents building a real project end to end into one zero-dependency CLI, `rw`,
+that runs work through Claude Code, Antigravity, DSH or a person in the IDE.
 
-It is also a way of working with an agent: **take as little human attention as possible, and give as much value as possible.** An agent that can act for a whole team can also waste a whole team's attention, so it acts only when asked or when a rule the team wrote allows it, and speaks only when someone must act or can use a result. [docs/000-philosophy.md](docs/000-philosophy.md) explains the principle and what it asks of the operator.
+```text
+owner ──rw add──▶ work/tasks/TASK-007.md ──rw loop──▶ lane: worktree + branch + session
+                                                      │ worker edits inside its scope
+  needs you ◀── question ◀── rw report blocked ◀──────┤
+  rw answer ───────────────── same session ──────────▶│
+                                                      ▼ rw report ready
+                     scope diff ✓ · accept re-run ✓ · review ✓ · gates ✓ ──▶ fast-forward main
+```
 
-## Setup
+## Quick start
 
-Setup has many steps, so an agent does it with you. Ask your coding agent:
+```sh
+# once per machine (Node 22.18+ or Bun; nothing to install)
+cd router-worker && npm link
 
-> Read SETUP.md in this repository and set up dsh-superagent with me.
+# once per repository
+cd ../my-repo
+rw init --host claude,antigravity      # kit + skills for each host; edit .rw/config.json, commit
 
-It asks one short question at a time, shows the full plan once, and then installs and configures everything. [SETUP.md](SETUP.md) is what it follows.
+# work
+rw add "Show the queue length in the status bar" \
+  --scope "src/ui/status-bar/**" --accept "npm test" \
+  --goal "The status bar shows how many items are queued." --authority "Ada 2026-11-06"
+rw loop          # dispatch, review, merge; halts when only you can continue
+rw status        # what needs you, what is moving, what is next
+rw answer TASK-001 "use the existing pill style"
+```
+
+Or open Claude Code / Antigravity in the repository and say "status": the rw-router skill does the
+talking, and rw does the routing.
+
+## What it guarantees
+
+- **One writer per path.** A report or merge that changes a file outside the task's scope is refused.
+- **The base never goes red.** rw re-runs the acceptance commands and merge gates on the branch merged
+  with the base, then fast-forwards.
+- **Follow-ups go to the same session.** Answers, review findings and red gates resume the worker that
+  has the context, instead of starting over.
+- **Quota runs out, work continues.** A capacity failure moves the lane to the next executor of its tier.
+- **Agents propose, the owner authorizes.** Agent ideas are recorded in `observe` until a rule you wrote
+  allows them.
+- **It halts honestly**: empty queue, a question, a red gate after two rounds, a failed review twice.
 
 ## Documentation
 
-Read the numbered documents in order; each builds only on the ones before it.
+Read in order; each builds on the ones before.
 
-- [000 Philosophy](docs/000-philosophy.md)
-- [001 Domain model](docs/001-domain.md)
-- [002 Authorization](docs/002-authorization.md)
-- [003 Execution](docs/003-execution.md)
-- [004 Prompts](docs/004-prompts.md)
-- [005 Panel](docs/005-panel.md)
-- [006 Deployment](docs/006-deployment.md): manual setup, configuration, upgrades and troubleshooting
-- [007 Architecture](docs/007-architecture.md)
-- [008 Cookbook](docs/008-cookbook.md): adding a Source
+- [00 Principles](docs/00-principles.md): the attention principle and what the agents' record taught
+- [01 Model](docs/01-model.md): tasks, lanes, reports, questions, follow-ups, states
+- [02 Protocol](docs/02-protocol.md): files, gates, review, the loop, halts, settings
+- [03 Executors](docs/03-executors.md): Claude Code, Antigravity bridge, manual, DSH; tiers and fallback
+- [04 Hosts](docs/04-hosts.md): installing for Claude Code, Antigravity and the DSH plugin
+- [05 Architecture](docs/05-architecture.md): code map and tests
+- [06 Lineage](docs/06-lineage.md): what came from dsh-superagent and from the field record, and what did not
+- [07 Decisions](docs/07-decisions.md): why it is built this way
+
+## Credits
+
+Based on [dsh-superagent](https://github.com/deepseek-ai/dsh-superagent-prototype) by the DeepSeek
+Harness Team (MIT); see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) and
+[docs/06-lineage.md](docs/06-lineage.md).
 
 ## Development
 
-`pnpm check` runs the typecheck, the tests and the build.
+`npm run check` (typecheck + tests; `npm install` first for TypeScript). `node src/cli.ts help` runs the
+CLI from source. `npm run smoke:claude` runs one small live task through Claude Code in a throwaway
+repository (ask → answer → resume → merge; a few cents on haiku). See [AGENTS.md](AGENTS.md).
 
 ## License
 
-[MIT](LICENSE)
+[MIT](LICENSE).
