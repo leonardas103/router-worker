@@ -58,7 +58,7 @@ export class Repo {
       lock: join(state, 'lock'),
       events: join(state, 'events.jsonl'),
       lanes: join(state, 'lanes'),
-      board: join(state, 'STATUS.md'),
+      board: join(state, 'board.txt'),
       bin: join(state, 'bin'),
       teamPrompts: join(rw, 'prompts'),
       tasks: join(root, config.tasksDir),

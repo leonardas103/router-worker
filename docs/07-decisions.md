@@ -116,3 +116,11 @@ only one machine has) needs exactly that. `.rw/config.local.json` is merged over
 validation: objects key by key, lists and values replaced, so an overlay states only what differs. It is
 gitignored by `rw init`, and `rw status` reports one that git would commit. One overlay file, not
 environment variables in argv templates, keeps every setting visible in one place and validated the same way.
+
+## RW-017 Generated runtime files are not Markdown
+
+The board and the per-lane prompts and review findings used to be `.md` files under `.rw/state/`. They
+hold absolute machine paths, and a repository's doc checks that walk every `.md` file reported them
+(found by the DSH agent on TASK-062, 2026-11-06). They are now `board.txt`, `TASK-###.prompt.txt` and
+`TASK-###.review.txt`, and the AGENTS.md section `rw init` writes tells repository checks to skip
+`.rw/state/`. The content is unchanged; only the extension, so no tool mistakes runtime output for docs.

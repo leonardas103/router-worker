@@ -5,7 +5,7 @@
  */
 import { strict as assert } from 'node:assert'
 import { spawnSync } from 'node:child_process'
-import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
@@ -169,6 +169,7 @@ describe('router-worker end to end', () => {
     assert.match(events, new RegExp(`"type":"verdict","task":"${id}","approve":false,"round":1`))
     assert.match(events, new RegExp(`"type":"verdict","task":"${id}","approve":true,"round":2`))
     assert.match(sh(repo, 'git', ['show', `main:src/${id}.txt`]), /please/)
+    assert.ok(existsSync(join(repo, '.rw', 'state', 'lanes', `${id}.review.txt`)), 'the reviewer wrote its findings file')
   })
 
   test('a gate that writes files cannot land: the verified tree must be the merged tree', async () => {
@@ -465,5 +466,13 @@ describe('router-worker end to end', () => {
     assert.ok(!existsSync(merged), 'the leftover rw created is removed')
     assert.ok(existsSync(join(dir, 'worktrees', 'another-repos-lane')), 'a folder rw did not create is never touched')
     assert.equal(spawnSync('git', ['show-ref', '--verify', '--quiet', 'refs/heads/rw/orphan'], { cwd: repo }).status, 1)
+  })
+
+  test('nothing rw generates under .rw/state is Markdown, so repository doc checks never see it', () => {
+    const state = join(repo, '.rw', 'state')
+    const files = readdirSync(state, { recursive: true }).map(String)
+    assert.ok(files.includes('board.txt'), 'the board is board.txt')
+    assert.ok(files.some((file) => file.endsWith('.prompt.txt')), 'lane prompts are .prompt.txt')
+    assert.deepEqual(files.filter((file) => file.endsWith('.md')), [])
   })
 })

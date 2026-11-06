@@ -141,7 +141,7 @@ function laneEnv(repo: Repo, key: string, role: string): NodeJS.ProcessEnv {
 }
 
 export function lanePromptFile(repo: Repo, key: string): string {
-  return join(repo.paths.lanes, `${key}.prompt.md`)
+  return join(repo.paths.lanes, `${key}.prompt.txt`)
 }
 
 export function laneLog(repo: Repo, key: string): string {
@@ -149,7 +149,7 @@ export function laneLog(repo: Repo, key: string): string {
 }
 
 export function reviewFile(repo: Repo, id: string): string {
-  return join(repo.paths.lanes, `${id}.review.md`)
+  return join(repo.paths.lanes, `${id}.review.txt`)
 }
 
 export function workerPrompt(repo: Repo, task: TaskContract, lane: LaneRecord): string {

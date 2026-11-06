@@ -99,7 +99,7 @@ over the committed config ([02](02-protocol.md#settings)).
 
 ### `manual` — a person or an IDE agent
 
-rw writes the full prompt to `.rw/state/lanes/TASK-###.prompt.md` and prints where to run it. Open an
+rw writes the full prompt to `.rw/state/lanes/TASK-###.prompt.txt` and prints where to run it. Open an
 agent in the worktree (Antigravity's Agent Manager, a Claude Code window, DSH), give it the prompt (or
 `/rw-worker TASK-###`), and the agent ends with `rw report` like any other lane. Follow-ups append to the
 prompt file. This is also the last entry of every default tier, so work never stops because an

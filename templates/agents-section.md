@@ -29,3 +29,7 @@ Hard rules:
 Layout: `work/tasks/` contracts (committed), `work/reports/` results (merged with the work),
 `.rw/config.json` settings (committed), `.rw/prompts/` team text appended to the built-in prompts,
 `.rw/state/` runtime (ignored by git).
+
+`.rw/` is rw's runtime area, not documentation. Repository checks that scan files (doc linters, link or
+path checkers, secret scanners) should skip `.rw/state/`: its files are regenerated on every change and
+hold this machine's absolute paths.

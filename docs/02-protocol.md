@@ -13,9 +13,9 @@ The files, the loop, the gates and the halts, exactly as rw implements them. Bui
 | `work/tasks/TASK-###.md` | contracts | owner (or intake agent, then `rw approve`) | yes; rw commits them |
 | `work/reports/TASK-###.md` | records | the task's worker, on its branch | yes; merged with the work; never edited after |
 | `.rw/state/state.json` | task and lane state | rw only, under a lock | no |
-| `.rw/state/STATUS.md` | the board, generated on every change | rw | no |
+| `.rw/state/board.txt` | the board, generated on every change | rw | no |
 | `.rw/state/events.jsonl` | append-only audit: dispatch, report, merge, fallback… | rw | no |
-| `.rw/state/lanes/` | prompts and executor logs per lane | rw | no |
+| `.rw/state/lanes/` | prompts, review findings and executor logs per lane (`.txt`, `.log`; nothing there is `.md`) | rw | no |
 | `~/.rw/worktrees/<repo>/TASK-###-<slug>` | lane worktrees (outside the repository) | the worker | branch `rw/TASK-###-<slug>` |
 
 A fresh session reconstructs the work from git alone: contracts and reports are committed, and done work
@@ -133,7 +133,7 @@ base branch is never left red by rw.
 ## Review
 
 A task with `review: required` gets a reviewer lane (tier `review`, read-only tools) after its ready
-report. The reviewer writes findings to `.rw/state/lanes/TASK-###.review.md` (most severe first, at most
+report. The reviewer writes findings to `.rw/state/lanes/TASK-###.review.txt` (most severe first, at most
 `limits.maxFindings`) and runs `rw verdict TASK --approve|--changes`. Changes go to the worker's own
 session; the next ready report starts the next round. After `limits.reviewRounds` rounds (default 2) still
 asking for changes, the owner decides. A reviewer that ends without a verdict is relaunched once; the
