@@ -175,6 +175,25 @@ At a halt the board's **Needs you** section is the whole message to the owner. W
 the next step needs a new decision, the rw-router skill drafts it as one decision sheet: recommendation,
 evidence, risks, what it unblocks.
 
+## Watchdog
+
+`rw watchdog` is read-only and prints only deviations: task files that do not parse, unknown or cyclic
+dependencies, a dispatched contract that changed (mandate drift), a running task with no lane, a lane
+whose process is gone or that has been silent longer than `limits.staleMinutes`, two tasks that own
+overlapping scopes, a lane that lost its worktree, leftover lane branches and folders, and the
+repository's own `watchdog.checks`.
+
+| Exit | Output | Meaning |
+| --- | --- | --- |
+| 0 | `WATCHDOG OK` | every check ran, nothing is wrong |
+| 1 | `DEVIATION …` lines | something is wrong; each line names it |
+| 4 | `SKIPPED …` lines, `WATCHDOG PARTIAL` | nothing is wrong in what ran, but some checks could not run |
+
+A partial audit happens where processes cannot be started, such as a scheduled session in a confined
+sandbox: rw then finds the repository from `.git` on disk, runs every check that needs only files, and
+skips the leftover-branch check (it needs git) and `watchdog.checks` (they need a shell). Give a scheduled
+watchdog permission to run `git` if you want the full audit.
+
 ## Owner commands
 
 | Command | Effect |

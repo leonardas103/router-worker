@@ -36,7 +36,7 @@ Router
   rw dispatch <TASK> [--executor name] [--model alias]   start a lane now; the model comes from the tier
   rw review <TASK> · rw merge <TASK>            merge keeps every gate's output in .rw/state/lanes/TASK.merge.log
   rw clean [--force]            remove leftover lane branches and folders, and dropped tasks' lanes
-  rw watchdog [--json] [--skip-checks]          read-only audit; prints only deviations (exit 1)
+  rw watchdog [--json] [--skip-checks]          read-only audit; prints only deviations (exit 1; 4 when partial)
 
 Workers and agents
   rw report <TASK> [--state ready|blocked|dropped|failed]   check and record the report
@@ -295,14 +295,16 @@ async function main(argv: readonly string[]): Promise<number> {
       }
     }
     case 'watchdog': {
-      const deviations = ops.watchdog(repo, { skipChecks: has(args, 'skip-checks') })
-      if (has(args, 'json')) print(JSON.stringify({ deviations }, null, 2))
-      else if (deviations.length === 0) print('WATCHDOG OK')
+      const { deviations, skipped } = ops.watchdog(repo, { skipChecks: has(args, 'skip-checks') })
+      if (has(args, 'json')) print(JSON.stringify({ deviations, skipped }, null, 2))
       else {
         for (const item of deviations) print(`DEVIATION ${item.check}: ${item.detail}`)
-        print(`WATCHDOG DEVIATIONS=${deviations.length}`)
+        for (const item of skipped) print(`SKIPPED ${item}`)
+        if (deviations.length) print(`WATCHDOG DEVIATIONS=${deviations.length}${skipped.length ? ` (partial: ${skipped.length} check(s) skipped)` : ''}`)
+        else print(skipped.length ? `WATCHDOG PARTIAL: no deviation in what ran; ${skipped.length} check(s) skipped` : 'WATCHDOG OK')
       }
-      return deviations.length ? 1 : 0
+      // 1: a deviation; 4: nothing wrong in what ran, but the audit is incomplete; 0: a full, clean audit
+      return deviations.length ? 1 : skipped.length ? 4 : 0
     }
     case 'prompt': {
       const id = ids(args)[0] as string

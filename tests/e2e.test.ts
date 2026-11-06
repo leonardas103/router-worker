@@ -314,6 +314,16 @@ describe('router-worker end to end', () => {
     rw('stop', id, 'test over')
   })
 
+  test('where git cannot be started, the watchdog runs what it can and says it is partial (exit 4)', () => {
+    // no PATH: git cannot be found, the same failure a sandbox that forbids starting processes produces
+    const env: NodeJS.ProcessEnv = { ...process.env, RW_TASK: '' }
+    for (const key of Object.keys(env)) if (key.toUpperCase() === 'PATH') env[key] = ''
+    const result = spawnSync(process.execPath, [CLI, 'watchdog', '--skip-checks'], { cwd: repo, encoding: 'utf8', env })
+    assert.equal(result.status, 4, `${result.stdout}${result.stderr}`)
+    assert.match(result.stdout, /SKIPPED leftover branches and folders: git could not be started \(ENOENT\)/)
+    assert.match(result.stdout, /WATCHDOG PARTIAL: no deviation in what ran; 1 check\(s\) skipped/)
+  })
+
   test('rw <command> --help shows that command', () => {
     const help = rw('add', '--help').out
     assert.match(help, /rw add "<title>"/)

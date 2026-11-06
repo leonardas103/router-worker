@@ -12,6 +12,14 @@ export interface Run {
   readonly out: string
   /** stdout alone, for parsing. */
   readonly stdout: string
+  /** Set when the process could not be started at all (not found, or a sandbox forbids it). */
+  readonly spawnError?: string
+}
+
+const SPAWN_FAILURES = new Set(['ENOENT', 'EPERM', 'EACCES', 'ENOEXEC'])
+function spawnError(error: Error | undefined): { spawnError?: string } {
+  const code = (error as NodeJS.ErrnoException | undefined)?.code
+  return code && SPAWN_FAILURES.has(code) ? { spawnError: code } : {}
 }
 
 /**
@@ -49,14 +57,14 @@ export function prepare(argv: readonly string[], env?: NodeJS.ProcessEnv): { fil
 export function runShell(command: string, cwd: string, timeoutMs = 30 * 60_000, env: NodeJS.ProcessEnv = process.env): Run {
   const result = spawnSync(command, { cwd, shell: true, encoding: 'utf8', timeout: timeoutMs, env, maxBuffer: 64 * 1024 * 1024, windowsHide: true })
   const out = `${result.stdout ?? ''}${result.stderr ?? ''}${result.error ? `\n${result.error.message}` : ''}`
-  return { ok: result.status === 0 && !result.error, code: result.status ?? -1, out, stdout: result.stdout ?? '' }
+  return { ok: result.status === 0 && !result.error, code: result.status ?? -1, out, stdout: result.stdout ?? '', ...spawnError(result.error) }
 }
 
 export function runArgv(argv: readonly string[], cwd: string, input?: string, env: NodeJS.ProcessEnv = process.env): Run {
   const { file, args, shell } = prepare(argv, env)
   const result = spawnSync(file, args, { cwd, shell, encoding: 'utf8', input, env, maxBuffer: 64 * 1024 * 1024, windowsHide: true })
   const out = `${result.stdout ?? ''}${result.stderr ?? ''}${result.error ? `\n${result.error.message}` : ''}`
-  return { ok: result.status === 0 && !result.error, code: result.status ?? -1, out, stdout: result.stdout ?? '' }
+  return { ok: result.status === 0 && !result.error, code: result.status ?? -1, out, stdout: result.stdout ?? '', ...spawnError(result.error) }
 }
 
 /** Start a process that outlives this one; its stdio goes nowhere. Returns its pid. */

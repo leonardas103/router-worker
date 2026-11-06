@@ -838,22 +838,45 @@ export function status(repo: Repo): string {
   return repo.renderBoard(undefined, kitProblems(repo))
 }
 
-export function watchdog(repo: Repo, options: { skipChecks?: boolean } = {}): Deviation[] {
+export interface WatchdogResult {
+  readonly deviations: Deviation[]
+  /** Checks that could not run here (a sandbox that forbids starting processes): the audit is partial. */
+  readonly skipped: string[]
+}
+
+/**
+ * The read-only audit. Where git or a shell cannot be started (a confined scheduled session), it still runs
+ * every check that needs only files, and names the ones it skipped instead of reporting a partial OK as OK.
+ */
+export function watchdog(repo: Repo, options: { skipChecks?: boolean } = {}): WatchdogResult {
   const { contracts, invalid } = repo.readContracts()
   const state = repo.state()
   const pids = Object.values(state.lanes).map((lane) => lane.pid).filter((pid) => pid > 0)
-  return audit({
-    now: repo.now(), state, contracts, invalid,
-    leftovers: leftovers(repo).map((item) => item.task
+  const skipped: string[] = []
+  let left: string[] = []
+  try {
+    left = leftovers(repo).map((item) => item.task
       ? `${item.task} (dropped) still has its lane ${item.path}${item.work ? ', with work' : ''}`
-      : `${item.kind} ${item.path} belongs to no lane`),
+      : `${item.kind} ${item.path} belongs to no lane`)
+  } catch (error) {
+    if (!(error instanceof g.GitUnavailable)) throw error
+    skipped.push(`leftover branches and folders: ${error.message}`)
+  }
+  const checks: { name: string; ok: boolean; detail: string }[] = []
+  if (!options.skipChecks) {
+    for (const check of repo.config.watchdog.checks) {
+      const run = runShell(check.command, repo.root, repo.config.limits.commandTimeoutMinutes * 60_000)
+      if (run.spawnError) skipped.push(`check ${check.name}: a shell could not be started (${run.spawnError})`)
+      else checks.push({ name: check.name, ok: run.ok, detail: run.ok ? 'ok' : `\`${check.command}\` exit ${run.code}: ${lastLines(run.out, 1, 200)}` })
+    }
+  }
+  const deviations = audit({
+    now: repo.now(), state, contracts, invalid, leftovers: left,
     alive: Object.fromEntries(pids.map((pid) => [pid, alive(pid)])),
     worktrees: new Set(Object.values(state.lanes).map((lane) => lane.worktree).filter((path) => exists(path))),
     staleMinutes: repo.config.limits.staleMinutes,
     manualStaleHours: repo.config.limits.manualStaleHours,
-    checks: options.skipChecks ? [] : repo.config.watchdog.checks.map((check) => {
-      const run = runShell(check.command, repo.root, repo.config.limits.commandTimeoutMinutes * 60_000)
-      return { name: check.name, ok: run.ok, detail: run.ok ? 'ok' : `\`${check.command}\` exit ${run.code}: ${lastLines(run.out, 1, 200)}` }
-    }),
+    checks,
   })
+  return { deviations, skipped }
 }

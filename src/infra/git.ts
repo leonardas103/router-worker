@@ -1,5 +1,5 @@
 /** The git operations rw needs, and nothing else. Every call is explicit about its working directory. */
-import { existsSync, rmSync } from 'node:fs'
+import { existsSync, readFileSync, rmSync, statSync } from 'node:fs'
 import { basename, dirname, resolve } from 'node:path'
 import { runArgv, type Run } from './proc.ts'
 
@@ -18,8 +18,19 @@ export function git(cwd: string, args: readonly string[], input?: string): Run {
   return runArgv(['git', ...args], cwd, input, { ...process.env, GIT_TERMINAL_PROMPT: '0', LC_ALL: 'C' })
 }
 
+/** git could not be started at all: not installed, or a sandbox forbids starting processes. */
+export class GitUnavailable extends Error {
+  readonly code: string
+  constructor(code: string) {
+    super(`git could not be started (${code})`)
+    this.name = 'GitUnavailable'
+    this.code = code
+  }
+}
+
 export function gitOk(cwd: string, args: readonly string[]): string {
   const result = git(cwd, args)
+  if (result.spawnError) throw new GitUnavailable(result.spawnError)
   if (!result.ok) throw new GitError(args, result.out)
   // NUL-separated output is kept raw: trimming could cut a path that starts or ends with a space
   return args.includes('-z') ? result.stdout : result.stdout.trim()
@@ -27,9 +38,35 @@ export function gitOk(cwd: string, args: readonly string[]): string {
 
 /** The main worktree of the repository `cwd` belongs to, even when `cwd` is a lane worktree. */
 export function mainRoot(cwd: string): string {
-  const common = gitOk(cwd, ['rev-parse', '--path-format=absolute', '--git-common-dir'])
-  const dir = resolve(common)
-  return basename(dir) === '.git' ? dirname(dir) : resolve(gitOk(cwd, ['rev-parse', '--show-toplevel']))
+  try {
+    const common = gitOk(cwd, ['rev-parse', '--path-format=absolute', '--git-common-dir'])
+    const dir = resolve(common)
+    return basename(dir) === '.git' ? dirname(dir) : resolve(gitOk(cwd, ['rev-parse', '--show-toplevel']))
+  } catch (error) {
+    if (error instanceof GitUnavailable) return mainRootFromFiles(cwd)
+    throw error
+  }
+}
+
+/**
+ * The same answer without running git, for read-only use where processes cannot be started: walk up to a
+ * `.git` folder (a main worktree), or a `.git` file whose `gitdir:` points into `<main>/.git/worktrees/`.
+ */
+export function mainRootFromFiles(cwd: string): string {
+  for (let dir = resolve(cwd); ; dir = dirname(dir)) {
+    const dotGit = resolve(dir, '.git')
+    if (existsSync(dotGit)) {
+      if (statSync(dotGit).isDirectory()) return dir
+      const pointer = /^gitdir:\s*(.+)$/m.exec(readFileSync(dotGit, 'utf8'))?.[1]?.trim()
+      if (pointer) {
+        const gitdir = resolve(dir, pointer)
+        const parent = dirname(gitdir)
+        if (basename(parent) === 'worktrees' && basename(dirname(parent)) === '.git') return dirname(dirname(parent))
+      }
+      return dir
+    }
+    if (dirname(dir) === dir) throw new GitError(['rev-parse'], `${cwd} is not inside a git repository`)
+  }
 }
 
 export function head(cwd: string, ref = 'HEAD'): string {
